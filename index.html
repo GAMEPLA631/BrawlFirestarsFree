@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brawl Firestars - Team Arena</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #0f172a; font-family: 'Inter', sans-serif; }
+        canvas { display: block; cursor: crosshair; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .btn-primary { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); transition: all 0.2s ease; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(234, 88, 12, 0.4); }
+        .kill-item { animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes slideIn { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <!-- UI: Auth Layer -->
+    <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 p-4">
+        <div class="glass p-10 rounded-3xl w-full max-w-md text-white shadow-2xl">
+            <div class="text-center mb-8">
+                <div class="inline-block p-4 bg-orange-500/20 rounded-2xl mb-4">
+                    <svg class="w-12 h-12 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </div>
+                <h1 class="text-3xl font-black tracking-tighter">FIRESTARTS <span class="text-orange-500">ARENA</span></h1>
+                <p class="text-slate-400 text-sm mt-2">Zadaj prezývku a bojuj za svoj tím</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Tvoja Prezývka</label>
+                    <input id="auth-username" type="text" placeholder="Napr. Killer123" class="w-full p-4 rounded-xl bg-slate-900 border border-slate-800 outline-none focus:border-orange-500 transition text-white">
+                </div>
+                <div class="pt-2">
+                    <button onclick="handleLogin()" class="w-full btn-primary p-4 rounded-xl font-bold shadow-lg text-lg text-white">VSTÚPIŤ DO HRY</button>
+                </div>
+            </div>
+            <p id="auth-msg" class="mt-6 text-sm text-center text-red-400 font-medium"></p>
+        </div>
+    </div>
+
+    <!-- UI: Main Menu -->
+    <div id="menu-screen" class="fixed inset-0 z-40 hidden flex items-center justify-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
+        <div class="glass p-12 rounded-[40px] w-full max-w-3xl text-white shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-orange-500"></div>
+            
+            <div class="flex justify-between items-start mb-10">
+                <div>
+                    <h2 class="text-5xl font-black mb-2">ARENA LOBBY</h2>
+                    <p class="text-slate-400">Vitaj, <span id="user-display" class="text-orange-400 font-bold">Hráč</span>. Si v <span class="text-blue-400 font-bold">MODROM TÍME</span>.</p>
+                </div>
+                <div class="text-right glass p-4 rounded-2xl border-orange-500/20">
+                    <p class="text-xs uppercase text-slate-500 font-bold">Celkové Killy</p>
+                    <p id="user-kills" class="text-3xl font-black text-orange-500">0</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-8 mb-10">
+                <div class="space-y-4">
+                    <div class="p-4 bg-slate-900/50 rounded-2xl border border-white/5">
+                        <label class="block mb-3 text-sm font-bold text-slate-400 uppercase">Počet Hráčov (AI): <span id="enemy-count-val" class="text-white">10</span></label>
+                        <input id="enemy-count" type="range" min="2" max="40" step="2" value="10" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="p-4 bg-slate-900/50 rounded-2xl border border-white/5">
+                        <label class="block mb-3 text-sm font-bold text-slate-400 uppercase">Farba Nepriateľského Tímu</label>
+                        <div class="flex items-center gap-4">
+                            <input id="enemy-color" type="color" value="#ef4444" class="w-12 h-12 rounded-lg bg-transparent cursor-pointer border-none">
+                            <span class="text-xs text-slate-500 italic">Zvoľ farbu nepriateľov</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="startGame()" class="flex-1 btn-primary p-6 rounded-2xl text-2xl font-black shadow-xl tracking-tight text-white">ŠTART TÍMOVEJ BITKY</button>
+                <button onclick="handleLogout()" class="px-6 bg-slate-800 hover:bg-red-900/40 rounded-2xl transition text-slate-400 hover:text-white border border-white/5">Odhlásiť</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI: Result Screen -->
+    <div id="result-screen" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/90 p-4">
+        <div class="glass p-12 rounded-[40px] w-full max-w-xl text-white shadow-2xl text-center">
+            <h2 id="result-title" class="text-6xl font-black mb-4">KONIEC ZÁPASU</h2>
+            <p id="result-winner" class="text-2xl mb-8 font-bold"></p>
+            
+            <div class="grid grid-cols-2 gap-4 mb-10">
+                <div class="p-6 bg-blue-500/20 rounded-2xl">
+                    <p class="text-xs uppercase font-bold text-blue-400 mb-1">Modrý Tím</p>
+                    <p id="result-team-score" class="text-4xl font-black">0</p>
+                </div>
+                <div class="p-6 bg-red-500/20 rounded-2xl">
+                    <p class="text-xs uppercase font-bold text-red-400 mb-1">Červený Tím</p>
+                    <p id="result-enemy-score" class="text-4xl font-black">0</p>
+                </div>
+            </div>
+            
+            <button onclick="backToMenu()" class="w-full btn-primary p-5 rounded-2xl text-xl font-black shadow-lg text-white">SPÄŤ DO LOBBY</button>
+        </div>
+    </div>
+
+    <!-- UI: HUD -->
+    <div id="game-hud" class="fixed inset-0 pointer-events-none hidden">
+        <div class="absolute top-6 left-6 flex gap-4 items-start">
+            <div class="glass p-5 rounded-2xl text-white shadow-xl min-w-[200px]">
+                <div class="flex justify-between items-end mb-2">
+                    <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Tvoje Zdravie</span>
+                    <span id="hp-text" class="text-sm font-bold">100%</span>
+                </div>
+                <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-white/5">
+                    <div id="hp-bar" class="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-300" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <div class="glass p-4 rounded-2xl text-white flex gap-6 px-8 shadow-xl">
+                <div class="text-center">
+                    <p class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Modrý</p>
+                    <p id="team-score" class="text-2xl font-black text-blue-500">0</p>
+                </div>
+                <div class="w-px bg-white/10 my-1"></div>
+                <div class="text-center">
+                    <p class="text-[10px] text-red-400 font-bold uppercase tracking-widest">Červený</p>
+                    <p id="enemy-score" class="text-2xl font-black text-red-500">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timer -->
+        <div class="absolute top-6 left-1/2 -translate-x-1/2">
+            <div class="glass px-10 py-3 rounded-full text-white shadow-2xl border-orange-500/30">
+                <p class="text-[10px] text-slate-500 font-bold uppercase text-center tracking-widest mb-1">Zostávajúci Čas</p>
+                <p id="timer-text" class="text-3xl font-black text-center text-orange-500 tabular-nums">02:00</p>
+            </div>
+        </div>
+
+        <div id="killfeed" class="absolute top-6 right-6 flex flex-col gap-2 w-72 items-end"></div>
+
+        <div class="absolute bottom-10 left-10 pointer-events-auto">
+            <button id="auto-btn" onclick="toggleAuto()" class="group relative bg-slate-900/80 hover:bg-slate-800 backdrop-blur-xl border border-white/10 text-white p-4 rounded-2xl font-bold transition-all shadow-2xl flex items-center gap-4">
+                <div id="auto-indicator" class="w-4 h-4 rounded-full bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]"></div>
+                <div class="text-left">
+                    <p class="text-[10px] text-slate-500 uppercase">Režim</p>
+                    <p class="text-sm uppercase tracking-tight">AUTOPILOT: <span id="auto-status" class="text-red-500">VYPNUTÝ</span></p>
+                </div>
+            </button>
+        </div>
+
+        <div class="absolute bottom-10 right-10 text-white/30 text-xs font-medium uppercase tracking-[0.2em]">
+            WASD - Pohyb • Myš - Streľba
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- Configuration & Local Data ---
+        const LOCAL_STORAGE_KEY = 'brawlstars_team_stats';
+        let currentUser = null;
+        let userStats = { kills: 0 };
+        
+        const BOT_NAMES = [
+            "Ghost", "Viper", "Ranger", "Bullet", "Shadow", "Falcon", "Titan", "Blaze", 
+            "Nova", "Wolf", "Cobra", "Rex", "Slayer", "Eagle", "Striker", "Storm", 
+            "Ace", "Hunter", "Flash", "Sniper", "Raven", "Knight", "Frost", "Cyber"
+        ];
+
+        function loadStats(nickname) {
+            const allData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{}');
+            return allData[nickname] || { kills: 0 };
+        }
+
+        function saveStats(nickname, stats) {
+            const allData = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{}');
+            allData[nickname] = stats;
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allData));
+        }
+
+        function handleLogin() {
+            const nickname = document.getElementById('auth-username').value.trim();
+            const msg = document.getElementById('auth-msg');
+            if (nickname.length < 2) { msg.innerText = "Zadaj aspoň 2 znaky."; return; }
+            currentUser = nickname;
+            userStats = loadStats(nickname);
+            document.getElementById('user-display').innerText = currentUser;
+            document.getElementById('user-kills').innerText = userStats.kills;
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.remove('hidden');
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('menu-screen').classList.add('hidden');
+            gameActive = false;
+        }
+
+        function backToMenu() {
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.remove('hidden');
+            gameActive = false;
+        }
+
+        // --- Game Specs ---
+        const MAP_SIZE = 4000;
+        const PLAYER_SIZE = 35;
+        const PROJECTILE_SPEED = 15;
+        const MAX_HP = 100;
+        const GRID_SIZE = 120;
+        const MATCH_DURATION = 120; // sekundy (2 minúty)
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let gameActive = false;
+        let autopilot = false;
+        let timeLeft = MATCH_DURATION;
+        let lastTimeUpdate = 0;
+
+        const keys = {};
+        const mouse = { x: 0, y: 0 };
+        const players = [];
+        const projectiles = [];
+        const particles = [];
+        let camera = { x: 0, y: 0 };
+        let scores = { team: 0, enemy: 0 };
+
+        const getDist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+        const random = (min, max) => Math.random() * (max - min) + min;
+
+        function addKillFeed(attacker, victim) {
+            const feed = document.getElementById('killfeed');
+            const item = document.createElement('div');
+            const isFriend = attacker.team === 'A';
+            
+            item.className = `kill-item glass px-5 py-2 rounded-xl text-sm text-white flex items-center gap-3 shadow-lg border-l-4 ${isFriend ? 'border-blue-500' : 'border-red-500'}`;
+            item.innerHTML = `
+                <span class="font-black ${isFriend ? 'text-blue-400' : 'text-red-400'}">${attacker.name}</span>
+                <span class="opacity-50">🔥</span>
+                <span class="font-medium text-slate-300">${victim.name}</span>
+            `;
+            
+            feed.prepend(item);
+            setTimeout(() => {
+                item.style.opacity = '0';
+                item.style.transform = 'translateX(20px)';
+                setTimeout(() => item.remove(), 500);
+            }, 5000);
+
+            if(isFriend) scores.team++; else scores.enemy++;
+            document.getElementById('team-score').innerText = scores.team;
+            document.getElementById('enemy-score').innerText = scores.enemy;
+
+            if(attacker.isPlayer) {
+                userStats.kills++;
+                saveStats(currentUser, userStats);
+                document.getElementById('user-kills').innerText = userStats.kills;
+            }
+        }
+
+        function finishGame() {
+            gameActive = false;
+            document.getElementById('game-hud').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+            
+            document.getElementById('result-team-score').innerText = scores.team;
+            document.getElementById('result-enemy-score').innerText = scores.enemy;
+            
+            const winnerText = document.getElementById('result-winner');
+            const titleText = document.getElementById('result-title');
+            
+            if (scores.team > scores.enemy) {
+                winnerText.innerText = "MODRÝ TÍM VYHRAL!";
+                winnerText.className = "text-2xl mb-8 font-bold text-blue-400";
+                titleText.innerText = "VÍŤAZSTVO";
+                titleText.className = "text-6xl font-black mb-4 text-blue-500";
+            } else if (scores.enemy > scores.team) {
+                winnerText.innerText = "ČERVENÝ TÍM VYHRAL!";
+                winnerText.className = "text-2xl mb-8 font-bold text-red-400";
+                titleText.innerText = "PORÁŽKA";
+                titleText.className = "text-6xl font-black mb-4 text-red-500";
+            } else {
+                winnerText.innerText = "NEREMÍZA!";
+                winnerText.className = "text-2xl mb-8 font-bold text-gray-400";
+                titleText.innerText = "REMIZA";
+                titleText.className = "text-6xl font-black mb-4 text-gray-300";
+            }
+        }
+
+        class Entity {
+            constructor(x, y, team, name, isPlayer = false) {
+                this.x = x; this.y = y; this.team = team; this.name = name; this.isPlayer = isPlayer;
+                this.hp = MAX_HP; this.radius = PLAYER_SIZE;
+                this.speed = isPlayer ? 7 : 5.5;
+                this.color = team === 'A' ? (isPlayer ? '#3b82f6' : '#60a5fa') : document.getElementById('enemy-color').value;
+                this.lastShot = 0; this.shotCooldown = 450;
+                this.angle = 0;
+            }
+
+            draw() {
+                const sx = this.x - camera.x; const sy = this.y - camera.y;
+                if (sx < -100 || sx > width + 100 || sy < -100 || sy > height + 100) return;
+
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath(); ctx.ellipse(sx, sy + 25, this.radius * 0.8, 12, 0, 0, Math.PI * 2); ctx.fill();
+
+                ctx.save(); ctx.translate(sx, sy);
+                ctx.rotate(this.angle);
+                ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI * 2); ctx.fill();
+                
+                ctx.fillStyle = 'white';
+                ctx.beginPath(); ctx.arc(10, -10, 5, 0, Math.PI * 2); ctx.arc(10, 10, 5, 0, Math.PI * 2); ctx.fill();
+                
+                const grad = ctx.createRadialGradient(-5, -5, 2, 0, 0, this.radius);
+                grad.addColorStop(0, 'rgba(255,255,255,0.2)'); grad.addColorStop(1, 'rgba(0,0,0,0.1)');
+                ctx.fillStyle = grad; ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+                ctx.restore();
+
+                ctx.fillStyle = 'white'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(this.name, sx, sy - 55);
+
+                const hpW = 60;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.roundRect(sx - hpW/2, sy - 48, hpW, 6, 3); ctx.fill();
+                ctx.fillStyle = this.hp > 40 ? '#22c55e' : '#ef4444';
+                ctx.roundRect(sx - hpW/2, sy - 48, (this.hp/MAX_HP) * hpW, 6, 3); ctx.fill();
+            }
+
+            shoot(tx, ty) {
+                const now = Date.now();
+                if(now - this.lastShot < this.shotCooldown) return;
+                this.lastShot = now;
+                const ang = Math.atan2(ty - this.y, tx - this.x);
+                this.angle = ang;
+                projectiles.push(new Projectile(this.x, this.y, ang, this));
+                this.x -= Math.cos(ang) * 3; this.y -= Math.sin(ang) * 3;
+                for(let i=0; i<3; i++) particles.push(new Particle(this.x, this.y, 'orange'));
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, angle, owner) {
+                this.x = x; this.y = y; this.angle = angle; this.owner = owner;
+                this.radius = 10; this.life = 80;
+                this.color = owner.team === 'A' ? '#60a5fa' : '#f97316';
+            }
+            update() {
+                this.x += Math.cos(this.angle) * PROJECTILE_SPEED;
+                this.y += Math.sin(this.angle) * PROJECTILE_SPEED;
+                this.life--;
+                if(Math.random() > 0.4) particles.push(new Particle(this.x, this.y, this.color));
+            }
+            draw() {
+                const sx = this.x - camera.x; const sy = this.y - camera.y;
+                ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+                const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, this.radius);
+                g.addColorStop(0, 'white'); g.addColorStop(0.5, this.color); g.addColorStop(1, 'transparent');
+                ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, this.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; this.y = y; this.color = color;
+                this.vx = (Math.random() - 0.5) * 4; this.vy = (Math.random() - 0.5) * 4;
+                this.alpha = 1; this.size = random(2, 5);
+            }
+            update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.03; }
+            draw() {
+                if(this.alpha <= 0) return;
+                ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
+                const sx = this.x - camera.x; const sy = this.y - camera.y;
+                ctx.beginPath(); ctx.arc(sx, sy, this.size, 0, Math.PI * 2); ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+
+        function startGame() {
+            const totalAI = parseInt(document.getElementById('enemy-count').value);
+            players.length = 0; projectiles.length = 0; particles.length = 0;
+            scores = { team: 0, enemy: 0 };
+            timeLeft = MATCH_DURATION;
+            lastTimeUpdate = Date.now();
+            
+            document.getElementById('team-score').innerText = "0";
+            document.getElementById('enemy-score').innerText = "0";
+            document.getElementById('timer-text').innerText = "02:00";
+            
+            players.push(new Entity(random(500, MAP_SIZE-500), random(500, MAP_SIZE-500), 'A', currentUser, true));
+            const teamSize = Math.floor(totalAI / 2);
+            const shuffledNames = [...BOT_NAMES].sort(() => 0.5 - Math.random());
+
+            for(let i=0; i<teamSize; i++) players.push(new Entity(random(0, MAP_SIZE), random(0, MAP_SIZE), 'A', shuffledNames[i] || "Bot " + i));
+            for(let i=0; i<teamSize; i++) players.push(new Entity(random(0, MAP_SIZE), random(0, MAP_SIZE), 'B', shuffledNames[i + teamSize] || "Bot " + (i+teamSize)));
+
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('game-hud').classList.remove('hidden');
+            gameActive = true;
+            requestAnimationFrame(loop);
+        }
+
+        function toggleAuto() {
+            autopilot = !autopilot;
+            const stat = document.getElementById('auto-status');
+            const ind = document.getElementById('auto-indicator');
+            if(autopilot) {
+                stat.innerText = "ZAPNUTÝ"; stat.className = "text-green-500 font-black";
+                ind.className = "w-4 h-4 rounded-full bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]";
+            } else {
+                stat.innerText = "VYPNUTÝ"; stat.className = "text-red-500 font-black";
+                ind.className = "w-4 h-4 rounded-full bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]";
+            }
+        }
+
+        function loop() {
+            if(!gameActive) return;
+
+            // Timer Logic
+            const now = Date.now();
+            if (now - lastTimeUpdate >= 1000) {
+                timeLeft--;
+                lastTimeUpdate = now;
+                
+                const mins = Math.floor(timeLeft / 60);
+                const secs = timeLeft % 60;
+                document.getElementById('timer-text').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    finishGame();
+                    return;
+                }
+            }
+
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, width, height);
+            const player = players.find(p => p.isPlayer);
+            if(player) {
+                camera.x += (player.x - width/2 - camera.x) * 0.1;
+                camera.y += (player.y - height/2 - camera.y) * 0.1;
+            }
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+            for(let x = -camera.x % GRID_SIZE; x < width; x += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+            for(let y = -camera.y % GRID_SIZE; y < height; y += GRID_SIZE) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+
+            if(player && player.hp > 0) {
+                if(autopilot) {
+                    const nearest = players.filter(p => p.team !== player.team && p.hp > 0).sort((a,b) => getDist(player.x, player.y, a.x, a.y) - getDist(player.x, player.y, b.x, b.y))[0];
+                    if(nearest) {
+                        const dist = getDist(player.x, player.y, nearest.x, nearest.y);
+                        if(dist > 350) {
+                            const ang = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+                            player.x += Math.cos(ang) * player.speed; player.y += Math.sin(ang) * player.speed;
+                        }
+                        player.shoot(nearest.x, nearest.y);
+                    }
+                } else {
+                    if(keys['w'] || keys['arrowup']) player.y -= player.speed;
+                    if(keys['s'] || keys['arrowdown']) player.y += player.speed;
+                    if(keys['a'] || keys['arrowleft']) player.x -= player.speed;
+                    if(keys['d'] || keys['arrowright']) player.x += player.speed;
+                    player.angle = Math.atan2(mouse.y + camera.y - player.y, mouse.x + camera.x - player.x);
+                }
+                player.x = Math.max(0, Math.min(MAP_SIZE, player.x));
+                player.y = Math.max(0, Math.min(MAP_SIZE, player.y));
+                document.getElementById('hp-bar').style.width = player.hp + '%';
+                document.getElementById('hp-text').innerText = Math.ceil(player.hp) + '%';
+            }
+
+            players.forEach(p => {
+                if(p.hp <= 0) { if(Math.random() < 0.005) { p.hp = MAX_HP; p.x = random(0, MAP_SIZE); p.y = random(0, MAP_SIZE); } return; }
+                if(!p.isPlayer) {
+                    const enemies = players.filter(e => e.team !== p.team && e.hp > 0);
+                    const target = enemies.sort((a,b) => getDist(p.x, p.y, a.x, a.y) - getDist(p.x, p.y, b.x, b.y))[0];
+                    if(target) {
+                        const d = getDist(p.x, p.y, target.x, target.y);
+                        if(d < 1000) {
+                            const a = Math.atan2(target.y - p.y, target.x - p.x);
+                            p.angle = a;
+                            if(d > 300) { p.x += Math.cos(a) * p.speed * 0.8; p.y += Math.sin(a) * p.speed * 0.8; }
+                            p.shoot(target.x, target.y);
+                        }
+                    }
+                }
+                p.draw();
+            });
+
+            for(let i = projectiles.length - 1; i >= 0; i--) {
+                const prj = projectiles[i]; prj.update(); prj.draw();
+                if(prj.life <= 0) { projectiles.splice(i, 1); continue; }
+                for(let p of players) {
+                    if(p.team !== prj.owner.team && p.hp > 0) {
+                        if(getDist(prj.x, prj.y, p.x, p.y) < p.radius + prj.radius) {
+                            p.hp -= 15; projectiles.splice(i, 1);
+                            for(let k=0; k<8; k++) particles.push(new Particle(prj.x, prj.y, 'white'));
+                            if(p.hp <= 0) addKillFeed(prj.owner, p); break;
+                        }
+                    }
+                }
+            }
+
+            for(let i = particles.length - 1; i >= 0; i--) { particles[i].update(); particles[i].draw(); if(particles[i].alpha <= 0) particles.splice(i, 1); }
+            ctx.strokeStyle = 'rgba(249, 115, 22, 0.3)'; ctx.lineWidth = 15; ctx.strokeRect(-camera.x, -camera.y, MAP_SIZE, MAP_SIZE);
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mousedown', () => {
+            const p = players.find(p => p.isPlayer);
+            if(p && p.hp > 0 && !autopilot) p.shoot(mouse.x + camera.x, mouse.y + camera.y);
+        });
+        window.addEventListener('resize', resize);
+        document.getElementById('enemy-count').oninput = (e) => document.getElementById('enemy-count-val').innerText = e.target.value;
+        window.onload = resize;
+
+    </script>
+</body>
+</html>
