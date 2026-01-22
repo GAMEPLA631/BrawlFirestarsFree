@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brawl Firestars - Team Arena</title>
+    <title>Brawl Firestars - Massive Arena</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #0f172a; font-family: 'Inter', sans-serif; }
@@ -60,8 +60,8 @@
             <div class="grid grid-cols-2 gap-8 mb-10">
                 <div class="space-y-4">
                     <div class="p-4 bg-slate-900/50 rounded-2xl border border-white/5">
-                        <label class="block mb-3 text-sm font-bold text-slate-400 uppercase">Počet Hráčov (AI): <span id="enemy-count-val" class="text-white">10</span></label>
-                        <input id="enemy-count" type="range" min="2" max="40" step="2" value="10" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
+                        <label class="block mb-3 text-sm font-bold text-slate-400 uppercase">Počet Hráčov (AI): <span id="enemy-count-val" class="text-white">200</span></label>
+                        <input id="enemy-count" type="range" min="2" max="200" step="2" value="200" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-orange-500">
                     </div>
                 </div>
                 <div class="space-y-4">
@@ -76,7 +76,7 @@
             </div>
 
             <div class="flex gap-4">
-                <button onclick="startGame()" class="flex-1 btn-primary p-6 rounded-2xl text-2xl font-black shadow-xl tracking-tight text-white">ŠTART TÍMOVEJ BITKY</button>
+                <button onclick="startGame()" class="flex-1 btn-primary p-6 rounded-2xl text-2xl font-black shadow-xl tracking-tight text-white">ŠTART MASÍVNEJ BITKY</button>
                 <button onclick="handleLogout()" class="px-6 bg-slate-800 hover:bg-red-900/40 rounded-2xl transition text-slate-400 hover:text-white border border-white/5">Odhlásiť</button>
             </div>
         </div>
@@ -165,7 +165,8 @@
         const BOT_NAMES = [
             "Ghost", "Viper", "Ranger", "Bullet", "Shadow", "Falcon", "Titan", "Blaze", 
             "Nova", "Wolf", "Cobra", "Rex", "Slayer", "Eagle", "Striker", "Storm", 
-            "Ace", "Hunter", "Flash", "Sniper", "Raven", "Knight", "Frost", "Cyber"
+            "Ace", "Hunter", "Flash", "Sniper", "Raven", "Knight", "Frost", "Cyber",
+            "Neon", "Pulse", "Havoc", "Static", "Zenith", "Omega", "Rogue", "Blade"
         ];
 
         function loadStats(nickname) {
@@ -210,7 +211,7 @@
         const PROJECTILE_SPEED = 15;
         const MAX_HP = 100;
         const GRID_SIZE = 120;
-        const MATCH_DURATION = 120; // sekundy (2 minúty)
+        const MATCH_DURATION = 120; // 2 minúty
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -283,9 +284,9 @@
                 titleText.innerText = "PORÁŽKA";
                 titleText.className = "text-6xl font-black mb-4 text-red-500";
             } else {
-                winnerText.innerText = "NEREMÍZA!";
+                winnerText.innerText = "REMIZA!";
                 winnerText.className = "text-2xl mb-8 font-bold text-gray-400";
-                titleText.innerText = "REMIZA";
+                titleText.innerText = "NEROZZHODNE";
                 titleText.className = "text-6xl font-black mb-4 text-gray-300";
             }
         }
@@ -296,12 +297,13 @@
                 this.hp = MAX_HP; this.radius = PLAYER_SIZE;
                 this.speed = isPlayer ? 7 : 5.5;
                 this.color = team === 'A' ? (isPlayer ? '#3b82f6' : '#60a5fa') : document.getElementById('enemy-color').value;
-                this.lastShot = 0; this.shotCooldown = 450;
+                this.lastShot = 0; this.shotCooldown = 450 + Math.random() * 200; // Slightly varied cooldowns for bots
                 this.angle = 0;
             }
 
             draw() {
                 const sx = this.x - camera.x; const sy = this.y - camera.y;
+                // Culling: Only draw if on screen
                 if (sx < -100 || sx > width + 100 || sy < -100 || sy > height + 100) return;
 
                 ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -320,7 +322,7 @@
                 ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.stroke();
                 ctx.restore();
 
-                ctx.fillStyle = 'white'; ctx.font = 'bold 13px Inter, sans-serif'; ctx.textAlign = 'center';
+                ctx.fillStyle = 'white'; ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'center';
                 ctx.fillText(this.name, sx, sy - 55);
 
                 const hpW = 60;
@@ -337,7 +339,7 @@
                 this.angle = ang;
                 projectiles.push(new Projectile(this.x, this.y, ang, this));
                 this.x -= Math.cos(ang) * 3; this.y -= Math.sin(ang) * 3;
-                for(let i=0; i<3; i++) particles.push(new Particle(this.x, this.y, 'orange'));
+                for(let i=0; i<2; i++) particles.push(new Particle(this.x, this.y, 'orange'));
             }
         }
 
@@ -351,11 +353,13 @@
                 this.x += Math.cos(this.angle) * PROJECTILE_SPEED;
                 this.y += Math.sin(this.angle) * PROJECTILE_SPEED;
                 this.life--;
-                if(Math.random() > 0.4) particles.push(new Particle(this.x, this.y, this.color));
+                if(Math.random() > 0.6) particles.push(new Particle(this.x, this.y, this.color));
             }
             draw() {
                 const sx = this.x - camera.x; const sy = this.y - camera.y;
-                ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+                if (sx < -50 || sx > width + 50 || sy < -50 || sy > height + 50) return;
+                
+                ctx.save(); ctx.shadowBlur = 10; ctx.shadowColor = this.color;
                 const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, this.radius);
                 g.addColorStop(0, 'white'); g.addColorStop(0.5, this.color); g.addColorStop(1, 'transparent');
                 ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, this.radius, 0, Math.PI * 2); ctx.fill();
@@ -367,13 +371,14 @@
             constructor(x, y, color) {
                 this.x = x; this.y = y; this.color = color;
                 this.vx = (Math.random() - 0.5) * 4; this.vy = (Math.random() - 0.5) * 4;
-                this.alpha = 1; this.size = random(2, 5);
+                this.alpha = 1; this.size = random(2, 4);
             }
-            update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.03; }
+            update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.04; }
             draw() {
                 if(this.alpha <= 0) return;
-                ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
                 const sx = this.x - camera.x; const sy = this.y - camera.y;
+                if (sx < 0 || sx > width || sy < 0 || sy > height) return;
+                ctx.globalAlpha = this.alpha; ctx.fillStyle = this.color;
                 ctx.beginPath(); ctx.arc(sx, sy, this.size, 0, Math.PI * 2); ctx.fill();
                 ctx.globalAlpha = 1;
             }
@@ -392,12 +397,18 @@
             document.getElementById('enemy-score').innerText = "0";
             document.getElementById('timer-text').innerText = "02:00";
             
+            // Player
             players.push(new Entity(random(500, MAP_SIZE-500), random(500, MAP_SIZE-500), 'A', currentUser, true));
+            
             const teamSize = Math.floor(totalAI / 2);
-            const shuffledNames = [...BOT_NAMES].sort(() => 0.5 - Math.random());
 
-            for(let i=0; i<teamSize; i++) players.push(new Entity(random(0, MAP_SIZE), random(0, MAP_SIZE), 'A', shuffledNames[i] || "Bot " + i));
-            for(let i=0; i<teamSize; i++) players.push(new Entity(random(0, MAP_SIZE), random(0, MAP_SIZE), 'B', shuffledNames[i + teamSize] || "Bot " + (i+teamSize)));
+            // Populate Teams
+            for(let i=0; i<teamSize; i++) {
+                players.push(new Entity(random(0, MAP_SIZE), random(0, MAP_SIZE), 'A', BOT_NAMES[i % BOT_NAMES.length] + " " + (i+1)));
+            }
+            for(let i=0; i<teamSize; i++) {
+                players.push(new Entity(random(0, MAP_SIZE), random(0, MAP_SIZE), 'B', BOT_NAMES[(i+teamSize) % BOT_NAMES.length] + " " + (i+1)));
+            }
 
             document.getElementById('menu-screen').classList.add('hidden');
             document.getElementById('game-hud').classList.remove('hidden');
@@ -421,20 +432,14 @@
         function loop() {
             if(!gameActive) return;
 
-            // Timer Logic
             const now = Date.now();
             if (now - lastTimeUpdate >= 1000) {
                 timeLeft--;
                 lastTimeUpdate = now;
-                
                 const mins = Math.floor(timeLeft / 60);
                 const secs = timeLeft % 60;
                 document.getElementById('timer-text').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-                
-                if (timeLeft <= 0) {
-                    finishGame();
-                    return;
-                }
+                if (timeLeft <= 0) { finishGame(); return; }
             }
 
             ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, width, height);
@@ -475,6 +480,7 @@
             players.forEach(p => {
                 if(p.hp <= 0) { if(Math.random() < 0.005) { p.hp = MAX_HP; p.x = random(0, MAP_SIZE); p.y = random(0, MAP_SIZE); } return; }
                 if(!p.isPlayer) {
+                    // Optimized bot search (check only every few frames for target or if no target)
                     const enemies = players.filter(e => e.team !== p.team && e.hp > 0);
                     const target = enemies.sort((a,b) => getDist(p.x, p.y, a.x, a.y) - getDist(p.x, p.y, b.x, b.y))[0];
                     if(target) {
@@ -497,7 +503,7 @@
                     if(p.team !== prj.owner.team && p.hp > 0) {
                         if(getDist(prj.x, prj.y, p.x, p.y) < p.radius + prj.radius) {
                             p.hp -= 15; projectiles.splice(i, 1);
-                            for(let k=0; k<8; k++) particles.push(new Particle(prj.x, prj.y, 'white'));
+                            for(let k=0; k<4; k++) particles.push(new Particle(prj.x, prj.y, 'white'));
                             if(p.hp <= 0) addKillFeed(prj.owner, p); break;
                         }
                     }
